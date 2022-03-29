@@ -98,11 +98,11 @@ script:
           snprintf(buf,25, "{epoch:%lu}\r\n", sntp_time->now().timestamp);
           id(myuart_data).write_str(buf);
 
-  - id: setconfig_script #für set config
+  - id: config_script #für set config
     then:
       - lambda: |-
           char send[45] = {0}; 
-          snprintf(send,45,"{set-config:%d,%d,%d,%d,%d,%d,%d,%d,%d}\r\n", id(wakeup_state), id(hour_time_dawn), id(minute_time_dawn), id(hour_time), id(minute_time),id(brightness), id(sound_state), id(track_number), id(volume_abs));
+          snprintf(send,45,"{config:%d,%d,%d,%d,%d,%d,%d,%d,%d}\r\n", id(wakeup_state), id(hour_time_dawn), id(minute_time_dawn), id(hour_time), id(minute_time),id(brightness), id(sound_state), id(track_number), id(volume_abs));
           id(myuart_data).write_str(send); 
 
   - id: scene_script  
@@ -124,9 +124,9 @@ time:
  - platform: sntp
    id: sntp_time
    on_time:
-      - seconds: /10
+      - seconds: /60
         then:
-        #  - script.execute: config_script # nur zum test
+        - script.execute: epoch_script # nur zum test
 
 
 switch:
@@ -233,103 +233,6 @@ switch:
       lambda: |-
         id(uart_readline).state.clear();
   - platform: template
-    name: config_switch # config-lesen
-    optimistic: true
-    lambda: |-
-        std::string uart_recieve = id(uart_readline).state. c_str();
-        int position_1;
-        int position_2;
-        int laenge;
-        if(strncmp(id(uart_readline).state.c_str(), "{config:",8) == 0 && uart_recieve.length() >= 27 ) //Set command, read command and write values to variableds 
-        {
-          uart_recieve.erase(remove(uart_recieve.begin(), uart_recieve.end(), '}'), uart_recieve.end());
-          uart_recieve = uart_recieve.c_str()+6;
-
-          //Wakeup enable
-          std::string wakeup_s = uart_recieve.substr(uart_recieve.find(":")+1, uart_recieve.find(",")-2);
-          uart_recieve = uart_recieve.c_str() +2;
-          id(wakeup_state) = atoi(wakeup_s.c_str());
-
-          //Dawn Hour
-          position_1 = uart_recieve.find(",");
-          position_2 = uart_recieve.find(",",position_1+1);
-          laenge = position_2-position_1;
-          
-          std::string hour_time_dawn_s = uart_recieve.substr(position_1+1, laenge-1);
-          uart_recieve = uart_recieve.c_str()+laenge;
-          id(hour_time_dawn) = atoi(hour_time_dawn_s.c_str());
-
-          //Dawn Minute
-          position_1 = uart_recieve.find(",");
-          position_2 = uart_recieve.find(",",position_1+1);
-          laenge = position_2-position_1;
-
-          std::string minute_time_dawn_s = uart_recieve.substr(position_1+1, laenge-1);          
-          id(minute_time_dawn) = atoi(minute_time_dawn_s.c_str());
-          uart_recieve = uart_recieve.c_str()+laenge;
-
-
-          //Wakeup time Hour
-          position_1 = uart_recieve.find(",");
-          position_2 = uart_recieve.find(",",position_1+1);
-          laenge = position_2-position_1;
-          std::string hour_time_s = uart_recieve.substr(position_1+1, laenge-1); 
-          id(hour_time) = atoi(hour_time_s.c_str());
-          uart_recieve = uart_recieve.c_str()+laenge;
-          
-
-          //Wakeup time Minute
-          position_1 = uart_recieve.find(",");
-          position_2 = uart_recieve.find(",",position_1+1);
-          laenge = position_2-position_1;
-          std::string minute_time_s =uart_recieve.substr(position_1+1, laenge-1); 
-          id(minute_time) = atoi(minute_time_s.c_str());
-          uart_recieve = uart_recieve.c_str()+laenge;
-
-          //Brightness
-          position_1 = uart_recieve.find(",");
-          position_2 = uart_recieve.find(",",position_1+1);
-          laenge = position_2-position_1;
-          std::string brightness_s = uart_recieve.substr(position_1+1, laenge-1);;
-          id(brightness) = atoi(brightness_s.c_str());
-          uart_recieve = uart_recieve.c_str()+laenge;
-
-          //Sound on/off
-          position_1 = uart_recieve.find(",");
-          position_2 = uart_recieve.find(",",position_1+1);
-          laenge = position_2-position_1;
-          std::string sound_s = uart_recieve.substr(position_1+1, laenge-1);;
-          id(sound_state) = atoi(sound_s.c_str());
-          uart_recieve = uart_recieve.c_str()+laenge;
-
-          //Track number
-          position_1 = uart_recieve.find(",");
-          position_2 = uart_recieve.find(",",position_1+1);
-          laenge = position_2-position_1;
-          std::string track_s = uart_recieve.substr(position_1+1, laenge-1);;
-          id(track_number) = atoi(track_s.c_str());
-          uart_recieve = uart_recieve.c_str()+laenge;
-
-
-          //Volume
-          position_1 = uart_recieve.find(",");
-          position_2 = uart_recieve.find(",",position_1+1);
-          laenge = position_2-position_1;
-          std::string volume_s = uart_recieve.substr(position_1+1, laenge-1);;
-          uart_recieve = uart_recieve.c_str()+laenge;
-
-          id(volume_abs) = atoi(volume_s.c_str());
-          return true;
-
-        }
-
-        else
-        {
-          return false;
-        }
-    on_turn_on:
-      lambda: |-
-        id(uart_readline).state.clear();
 
   - platform: template
     name: scene_switch
@@ -366,7 +269,7 @@ switch:
           return false;
         }
     on_turn_on:
-    - script.execute: setconfig_script
+    - script.execute: config_script
     - lambda: |-
         id(uart_readline).state.clear();
   - platform: template
